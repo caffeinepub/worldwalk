@@ -3,11 +3,22 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { type MutableRefObject, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Building, Road } from "../../backend";
-import {
-  type BuildingTextureStyle,
-  getBuildingTexture,
-  getGroundTexture,
-} from "../../utils/buildingTextures";
+import type { LocationTheme } from "../../utils/osmFetch";
+
+const DEFAULT_THEME: LocationTheme = {
+  skyColor: "#7a9ab0",
+  fogColor: "#8a9aa8",
+  fogNear: 100,
+  fogFar: 500,
+  ambientColor: "#dddddd",
+  ambientIntensity: 0.6,
+  sunColor: "#ffffff",
+  sunIntensity: 1.2,
+  groundColor: "#555555",
+  buildingPalette: ["#666666", "#777777", "#555555", "#888888", "#606060"],
+  roadColor: "#333333",
+  region: "default",
+};
 
 interface PlayerState {
   pos: { x: number; y: number; z: number };
@@ -25,79 +36,81 @@ interface Props {
     pos: { x: number; y: number; z: number },
     yaw: number,
   ) => void;
+  theme?: LocationTheme;
+  buildingPolygons?: Array<{ x: number; z: number }[]>;
 }
 
-function getTextureStyle(height: number): BuildingTextureStyle {
-  if (height > 15) return "glass";
-  if (height > 8) return "concrete";
-  if (height > 4) return "brick";
-  return "stone";
-}
-
-function BuildingMesh({ building }: { building: Building }) {
+function BuildingMesh({
+  building,
+  index,
+  polygon,
+  palette,
+}: {
+  building: Building;
+  index: number;
+  polygon?: { x: number; z: number }[];
+  palette: string[];
+}) {
   const h = building.size.y;
-  const style = getTextureStyle(h);
+  const color = palette[index % palette.length];
+  const roughness = h > 15 ? 0.2 : h > 8 ? 0.6 : 0.85;
+  const metalness = h > 15 ? 0.1 : 0.0;
 
-  const texture = useMemo(() => {
-    const tex = getBuildingTexture(style);
-    const repeatX = Math.max(1, building.size.x / 4);
-    const repeatY = Math.max(1, h / 4);
-    const t = tex.clone();
-    t.wrapS = THREE.RepeatWrapping;
-    t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(repeatX, repeatY);
-    t.needsUpdate = true;
-    return t;
-    // biome-ignore lint/correctness/useExhaustiveDependencies: building.size.z not used
-  }, [style, building.size.x, h]);
+  const geometry = useMemo(() => {
+    if (polygon && polygon.length >= 3) {
+      const shape = new THREE.Shape();
+      shape.moveTo(polygon[0].x, polygon[0].z);
+      for (let i = 1; i < polygon.length; i++) {
+        shape.lineTo(polygon[i].x, polygon[i].z);
+      }
+      shape.closePath();
+      const geo = new THREE.ExtrudeGeometry(shape, {
+        depth: h,
+        bevelEnabled: false,
+      });
+      return geo;
+    }
+    return new THREE.BoxGeometry(building.size.x, h, building.size.z);
+  }, [polygon, h, building.size.x, building.size.z]);
 
-  const topTexture = useMemo(() => {
-    const tex = getBuildingTexture(style);
-    const t = tex.clone();
-    t.wrapS = THREE.RepeatWrapping;
-    t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(
-      Math.max(1, building.size.x / 4),
-      Math.max(1, building.size.z / 4),
-    );
-    t.needsUpdate = true;
-    return t;
-  }, [style, building.size.x, building.size.z]);
-
-  const materials = useMemo(
-    () => [
-      new THREE.MeshStandardMaterial({ map: texture }), // +X
-      new THREE.MeshStandardMaterial({ map: texture }), // -X
+  const material = useMemo(
+    () =>
       new THREE.MeshStandardMaterial({
-        map: topTexture,
-        color: new THREE.Color(0.9, 0.9, 0.9),
-      }), // +Y top
-      new THREE.MeshStandardMaterial({
-        map: texture,
-        color: new THREE.Color(0.7, 0.7, 0.7),
-      }), // -Y bottom
-      new THREE.MeshStandardMaterial({ map: texture }), // +Z
-      new THREE.MeshStandardMaterial({ map: texture }), // -Z
-    ],
-    [texture, topTexture],
+        color: new THREE.Color(color),
+        roughness,
+        metalness,
+      }),
+    [color, roughness, metalness],
   );
+
+  if (polygon && polygon.length >= 3) {
+    return (
+      <mesh
+        geometry={geometry}
+        material={material}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0, 0]}
+        castShadow
+        receiveShadow
+      />
+    );
+  }
 
   return (
     <mesh
+      geometry={geometry}
+      material={material}
       position={[building.position.x, h / 2, building.position.z]}
       castShadow
       receiveShadow
-      material={materials}
-    >
-      <boxGeometry args={[building.size.x, h, building.size.z]} />
-    </mesh>
+    />
   );
 }
 
-function RoadLine({ road }: { road: Road }) {
+function RoadLine({ road, color }: { road: Road; color: string }) {
   if (road.path.length < 2) return null;
   const points = road.path.map((p) => new THREE.Vector3(p.x, 0.08, p.z));
-  return <Line points={points} color="#4a4a5a" lineWidth={3} />;
+  return <Line points={points} color={color} lineWidth={4} />;
 }
 
 function OtherPlayer({ player }: { player: PlayerState }) {
@@ -107,17 +120,14 @@ function OtherPlayer({ player }: { player: PlayerState }) {
       position={[player.pos.x, 0, player.pos.z]}
       rotation={[0, player.yaw, 0]}
     >
-      {/* Body */}
       <mesh position={[0, 0.9, 0]}>
         <cylinderGeometry args={[0.25, 0.25, 1.2, 12]} />
         <meshLambertMaterial color={color} />
       </mesh>
-      {/* Head */}
       <mesh position={[0, 1.7, 0]}>
         <sphereGeometry args={[0.28, 12, 12]} />
         <meshLambertMaterial color={color} />
       </mesh>
-      {/* Name label */}
       <Html position={[0, 2.3, 0]} center distanceFactor={12}>
         <div
           style={{
@@ -264,21 +274,11 @@ function FirstPersonCamera({
   return null;
 }
 
-function Ground() {
-  const texture = useMemo(() => {
-    const tex = getGroundTexture();
-    const t = tex.clone();
-    t.wrapS = THREE.RepeatWrapping;
-    t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(250, 250);
-    t.needsUpdate = true;
-    return t;
-  }, []);
-
+function Ground({ color }: { color: string }) {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
       <planeGeometry args={[2000, 2000]} />
-      <meshStandardMaterial map={texture} roughness={0.95} metalness={0.0} />
+      <meshStandardMaterial color={color} roughness={0.95} metalness={0.0} />
     </mesh>
   );
 }
@@ -290,44 +290,55 @@ export default function GameScene({
   posRef,
   yawRef,
   onPositionUpdate,
+  theme,
+  buildingPolygons = [],
 }: Props) {
+  const t = theme ?? DEFAULT_THEME;
+
   return (
     <>
-      {/* Lighting */}
-      <ambientLight intensity={0.5} />
+      <fog attach="fog" args={[t.fogColor, t.fogNear, t.fogFar]} />
+
+      <ambientLight color={t.ambientColor} intensity={t.ambientIntensity} />
       <directionalLight
-        position={[50, 100, 50]}
-        intensity={1.5}
+        position={[80, 120, 60]}
+        color={t.sunColor}
+        intensity={t.sunIntensity}
         castShadow
         shadow-mapSize={[2048, 2048]}
       />
       <directionalLight
         position={[-30, 60, -30]}
-        intensity={0.4}
-        color="#aaccff"
+        intensity={t.ambientIntensity * 0.4}
+        color={t.ambientColor}
       />
 
-      {/* Ground with asphalt texture */}
-      <Ground />
+      <Ground color={t.groundColor} />
 
-      {/* Roads */}
       {roads.map((road) => (
-        <RoadLine key={road.id.toString()} road={road} />
+        <RoadLine key={road.id.toString()} road={road} color={t.roadColor} />
       ))}
 
-      {/* Buildings */}
-      {buildings.map((building, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: stable index for buildings
-        <BuildingMesh key={i} building={building} />
+      {buildings.map((building, i) => {
+        const bkey = `b_${building.position.x.toFixed(2)}_${building.position.z.toFixed(2)}_${i}`;
+        return (
+          <BuildingMesh
+            key={bkey}
+            building={building}
+            index={i}
+            polygon={buildingPolygons[i]}
+            palette={t.buildingPalette}
+          />
+        );
+      })}
+
+      {otherPlayers.map((player) => (
+        <OtherPlayer
+          key={`${player.character.name}_${player.pos.x}`}
+          player={player}
+        />
       ))}
 
-      {/* Other players */}
-      {otherPlayers.map((player, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: stable index
-        <OtherPlayer key={i} player={player} />
-      ))}
-
-      {/* First person controls */}
       <FirstPersonCamera
         buildings={buildings}
         posRef={posRef}

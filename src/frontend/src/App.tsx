@@ -4,6 +4,7 @@ import type { Building, Road } from "./backend";
 import CharacterCreation from "./pages/CharacterCreation";
 import GameWorld from "./pages/GameWorld";
 import LandingPage from "./pages/LandingPage";
+import type { LocationTheme } from "./utils/osmFetch";
 
 export type AppPage = "landing" | "character" | "game";
 
@@ -12,6 +13,8 @@ export interface WorldData {
   buildings: Building[];
   roads: Road[];
   locationCategory?: "real" | "fictional";
+  theme?: LocationTheme;
+  buildingPolygons?: Array<{ x: number; z: number }[]>;
 }
 
 export interface CharacterData {

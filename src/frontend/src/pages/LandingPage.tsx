@@ -119,7 +119,12 @@ export default function LandingPage({ onWorldCreated }: Props) {
           osmData.roads,
         );
         toast.success(`World created: ${osmData.locationName}`);
-        onWorldCreated({ ...osmData, locationCategory: "real" });
+        onWorldCreated({
+          ...osmData,
+          locationCategory: "real",
+          theme: osmData.theme,
+          buildingPolygons: osmData.buildingPolygons,
+        });
       }
     } catch (err) {
       toast.error(

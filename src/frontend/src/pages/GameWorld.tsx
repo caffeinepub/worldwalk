@@ -35,6 +35,7 @@ export default function GameWorld({
   const latestYawRef = useRef(0);
 
   const isFictional = worldData.locationCategory === "fictional";
+  const skyColor = worldData.theme?.skyColor ?? "#87CEEB";
 
   const handlePositionUpdate = useCallback(
     (pos: { x: number; y: number; z: number }, yaw: number) => {
@@ -137,7 +138,7 @@ export default function GameWorld({
         <Canvas
           camera={{ fov: 75, near: 0.1, far: 2000 }}
           shadows
-          style={{ background: "#87CEEB" }}
+          style={{ background: skyColor }}
           gl={{ antialias: true }}
         >
           <GameScene
@@ -147,6 +148,8 @@ export default function GameWorld({
             posRef={posRef}
             yawRef={yawRef}
             onPositionUpdate={handlePositionUpdate}
+            theme={worldData.theme}
+            buildingPolygons={worldData.buildingPolygons ?? []}
           />
         </Canvas>
       </div>
