@@ -1,0 +1,173 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dark game theme - deep space navy */
+    --background: 0.07 0.02 260;
+    --foreground: 0.94 0.008 260;
+
+    --card: 0.11 0.025 255;
+    --card-foreground: 0.94 0.008 260;
+
+    --popover: 0.11 0.025 255;
+    --popover-foreground: 0.94 0.008 260;
+
+    --primary: 0.74 0.2 195;
+    --primary-foreground: 0.07 0.02 260;
+
+    --secondary: 0.15 0.03 255;
+    --secondary-foreground: 0.94 0.008 260;
+
+    --muted: 0.18 0.025 255;
+    --muted-foreground: 0.52 0.04 255;
+
+    --accent: 0.65 0.22 165;
+    --accent-foreground: 0.07 0.02 260;
+
+    --destructive: 0.62 0.22 25;
+    --destructive-foreground: 0.94 0.008 260;
+
+    --border: 0.2 0.04 255;
+    --input: 0.18 0.03 255;
+    --ring: 0.74 0.2 195;
+
+    --chart-1: 0.74 0.2 195;
+    --chart-2: 0.65 0.22 165;
+    --chart-3: 0.72 0.18 130;
+    --chart-4: 0.68 0.2 220;
+    --chart-5: 0.62 0.22 25;
+
+    --sidebar: 0.09 0.025 255;
+    --sidebar-foreground: 0.94 0.008 260;
+    --sidebar-primary: 0.74 0.2 195;
+    --sidebar-primary-foreground: 0.07 0.02 260;
+    --sidebar-accent: 0.15 0.03 255;
+    --sidebar-accent-foreground: 0.94 0.008 260;
+    --sidebar-border: 0.2 0.04 255;
+    --sidebar-ring: 0.74 0.2 195;
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+}
+
+/* Dot grid background */
+.dot-grid {
+  background-image: radial-gradient(circle, oklch(0.3 0.05 255 / 0.4) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Glowing cyan effect */
+.glow-cyan {
+  text-shadow:
+    0 0 20px oklch(0.74 0.2 195 / 0.8),
+    0 0 60px oklch(0.74 0.2 195 / 0.4),
+    0 0 120px oklch(0.74 0.2 195 / 0.2);
+}
+
+.glow-border {
+  box-shadow:
+    0 0 0 1px oklch(0.74 0.2 195 / 0.5),
+    0 0 20px oklch(0.74 0.2 195 / 0.15),
+    inset 0 0 20px oklch(0.74 0.2 195 / 0.05);
+}
+
+/* Game HUD overlay style */
+.hud-panel {
+  background: oklch(0.07 0.02 260 / 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid oklch(0.74 0.2 195 / 0.25);
+  border-radius: 8px;
+}
+
+/* Crosshair */
+.crosshair {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 100;
+}
+
+.crosshair::before,
+.crosshair::after {
+  content: '';
+  position: absolute;
+  background: oklch(0.94 0 0 / 0.8);
+}
+
+.crosshair::before {
+  width: 16px;
+  height: 2px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.crosshair::after {
+  width: 2px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Scanning animation for loading */
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.scan-line {
+  animation: scan 2s linear infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.float-in {
+  animation: float-in 0.6s ease-out forwards;
+}
+
+.float-in-delay-1 { animation-delay: 0.1s; opacity: 0; }
+.float-in-delay-2 { animation-delay: 0.2s; opacity: 0; }
+.float-in-delay-3 { animation-delay: 0.35s; opacity: 0; }
+.float-in-delay-4 { animation-delay: 0.5s; opacity: 0; }
