@@ -1,26 +1,28 @@
 # WorldWalk
 
 ## Current State
-WorldWalk is a 3D first-person multiplayer explorer. Users type a real-world location, which is geocoded and fetched from OpenStreetMap/Overpass. The resulting buildings and roads are rendered in a Three.js scene. The landing page has a single text input with real-world example locations.
+Buildings are rendered as plain gray/beige colored box meshes with no texture detail. The buildings look like white rectangles, with color varying slightly based on position hash but no visual character.
 
 ## Requested Changes (Diff)
 
 ### Add
-- A location-type toggle on the landing page: "Real World" (existing) vs "Anime / Game" tab.
-- A curated list of iconic anime/game locations (Konoha, Hyrule Castle Town, Midgar, Kamurocho, Shiganshina, Pallet Town, Kakariko Village, etc.) shown as quick-select chips when in Anime/Game mode.
-- A `fictionalWorldGen.ts` utility that procedurally generates themed Building[] and Road[] arrays from a fictional location name. Uses the location name as a seed for deterministic placement so the same name always gives the same world. Generates themed layouts (village, castle town, cyberpunk city, etc.) based on keyword matching.
-- The `WorldData.locationCategory` field ("real" | "fictional") propagated to `GameWorld` so the HUD can show a themed badge.
+- Procedural canvas-generated textures for building facades: brick, concrete, glass curtain-wall, stone patterns
+- Window patterns drawn onto building textures for visual depth
+- Different building material styles based on building size/height (tall = glass, mid = concrete+windows, small = brick)
+- Roof detail: flat rooftop texture variant
+- Road surface material with asphalt-like color and lane markings
+- Ground texture: sidewalk/grass appearance
 
 ### Modify
-- `LandingPage.tsx`: add a two-tab toggle above the input. When in "Anime / Game" mode, the placeholder cycles through fictional examples, the explore handler calls `fictionalWorldGen` instead of `fetchOsmData`, and the example chips show anime/game locations.
-- `App.tsx`: extend `WorldData` with optional `locationCategory: "real" | "fictional"`.
-- `GameWorld.tsx`: HUD shows a small "Fictional" badge styled in purple/magenta when `locationCategory === "fictional"`.
+- BuildingMesh component: replace plain meshLambertMaterial with canvas texture + meshStandardMaterial
+- GameScene ground: replace flat green plane with a more urban/natural ground texture
+- RoadLine: consider rendering as flat road mesh instead of just lines
 
 ### Remove
-- Nothing removed.
+- Plain grid helper (replace with ground texture)
 
 ## Implementation Plan
-1. Create `src/frontend/src/utils/fictionalWorldGen.ts` with seeded PRNG, keyword-based theme selection, and building/road layout generators for village, castle, cyberpunk, and open-world themes.
-2. Update `App.tsx` to add `locationCategory` field to `WorldData`.
-3. Update `LandingPage.tsx` with mode tabs, conditional logic, and anime/game example chips.
-4. Update `GameWorld.tsx` HUD to show a category badge.
+1. Create `buildingTextures.ts` utility that generates THREE.CanvasTexture for building facades using 2D canvas API (brick rows, window grids, concrete panels, glass reflections)
+2. Update `BuildingMesh` to select texture style based on building height and apply to all 4 sides + top
+3. Update ground plane material with a subtle asphalt/grass canvas texture
+4. Keep performance reasonable: cache textures by style key, limit unique textures to ~6 variants

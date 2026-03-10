@@ -1,8 +1,13 @@
 import { Html, Line } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
-import { type MutableRefObject, useEffect, useRef } from "react";
+import { type MutableRefObject, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Building, Road } from "../../backend";
+import {
+  type BuildingTextureStyle,
+  getBuildingTexture,
+  getGroundTexture,
+} from "../../utils/buildingTextures";
 
 interface PlayerState {
   pos: { x: number; y: number; z: number };
@@ -22,27 +27,69 @@ interface Props {
   ) => void;
 }
 
-function hashNum(n: number) {
-  return Math.abs(Math.sin(n * 127.1 + 311.7) * 43758.5453) % 1;
+function getTextureStyle(height: number): BuildingTextureStyle {
+  if (height > 15) return "glass";
+  if (height > 8) return "concrete";
+  if (height > 4) return "brick";
+  return "stone";
 }
 
 function BuildingMesh({ building }: { building: Building }) {
   const h = building.size.y;
-  const colorSeed = hashNum(building.position.x + building.position.z);
-  const lightness = 0.75 + colorSeed * 0.15;
-  const color = new THREE.Color().setStyle(
-    `oklch(${lightness} 0.02 ${220 + colorSeed * 40})`,
+  const style = getTextureStyle(h);
+
+  const texture = useMemo(() => {
+    const tex = getBuildingTexture(style);
+    const repeatX = Math.max(1, building.size.x / 4);
+    const repeatY = Math.max(1, h / 4);
+    const t = tex.clone();
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(repeatX, repeatY);
+    t.needsUpdate = true;
+    return t;
+    // biome-ignore lint/correctness/useExhaustiveDependencies: building.size.z not used
+  }, [style, building.size.x, h]);
+
+  const topTexture = useMemo(() => {
+    const tex = getBuildingTexture(style);
+    const t = tex.clone();
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(
+      Math.max(1, building.size.x / 4),
+      Math.max(1, building.size.z / 4),
+    );
+    t.needsUpdate = true;
+    return t;
+  }, [style, building.size.x, building.size.z]);
+
+  const materials = useMemo(
+    () => [
+      new THREE.MeshStandardMaterial({ map: texture }), // +X
+      new THREE.MeshStandardMaterial({ map: texture }), // -X
+      new THREE.MeshStandardMaterial({
+        map: topTexture,
+        color: new THREE.Color(0.9, 0.9, 0.9),
+      }), // +Y top
+      new THREE.MeshStandardMaterial({
+        map: texture,
+        color: new THREE.Color(0.7, 0.7, 0.7),
+      }), // -Y bottom
+      new THREE.MeshStandardMaterial({ map: texture }), // +Z
+      new THREE.MeshStandardMaterial({ map: texture }), // -Z
+    ],
+    [texture, topTexture],
   );
-  // Fallback to a beige-ish color
-  const meshColor = color.isColor ? color : new THREE.Color(0.88, 0.86, 0.82);
+
   return (
     <mesh
       position={[building.position.x, h / 2, building.position.z]}
       castShadow
       receiveShadow
+      material={materials}
     >
       <boxGeometry args={[building.size.x, h, building.size.z]} />
-      <meshLambertMaterial color={meshColor} />
     </mesh>
   );
 }
@@ -115,7 +162,6 @@ function FirstPersonCamera({
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       keysRef.current.add(e.code);
-      // Prevent scrolling with WASD/arrows in game
       if (
         ["KeyW", "KeyS", "KeyA", "KeyD", "ArrowUp", "ArrowDown"].includes(
           e.code,
@@ -203,13 +249,11 @@ function FirstPersonCamera({
       if (canMoveZ) posRef.current.z = newZ;
     }
 
-    // Update camera
     camera.position.set(posRef.current.x, posRef.current.y, posRef.current.z);
     camera.rotation.order = "YXZ";
     camera.rotation.y = yawRef.current;
     camera.rotation.x = pitchRef.current;
 
-    // Notify every ~100ms
     const now = Date.now();
     if (now - lastUpdateRef.current > 100) {
       lastUpdateRef.current = now;
@@ -218,6 +262,25 @@ function FirstPersonCamera({
   });
 
   return null;
+}
+
+function Ground() {
+  const texture = useMemo(() => {
+    const tex = getGroundTexture();
+    const t = tex.clone();
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(250, 250);
+    t.needsUpdate = true;
+    return t;
+  }, []);
+
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <planeGeometry args={[2000, 2000]} />
+      <meshStandardMaterial map={texture} roughness={0.95} metalness={0.0} />
+    </mesh>
+  );
 }
 
 export default function GameScene({
@@ -231,10 +294,10 @@ export default function GameScene({
   return (
     <>
       {/* Lighting */}
-      <ambientLight intensity={0.7} />
+      <ambientLight intensity={0.5} />
       <directionalLight
         position={[50, 100, 50]}
-        intensity={1.2}
+        intensity={1.5}
         castShadow
         shadow-mapSize={[2048, 2048]}
       />
@@ -244,14 +307,8 @@ export default function GameScene({
         color="#aaccff"
       />
 
-      {/* Ground */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[2000, 2000]} />
-        <meshLambertMaterial color="#3a4a35" />
-      </mesh>
-
-      {/* Sidewalk grid - subtle lines */}
-      <gridHelper args={[2000, 200, "#2a3a2a", "#2a3a2a"]} />
+      {/* Ground with asphalt texture */}
+      <Ground />
 
       {/* Roads */}
       {roads.map((road) => (
